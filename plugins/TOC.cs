@@ -34,7 +34,10 @@ public static class TOC
 {
     public static string action(string text, string[] options)
     {
-        //match group index.
+        // Remove heading syntax in pre element.
+        text = KARAS.KARAS.replaceTextInPreElement(text, "=", "");
+
+        // match group index.
         const int mgiAllText = 0;
         const int mgiMarks = 1;
         const int mgiMarkedupText = 2;
