@@ -29,12 +29,12 @@
 
 public static class Debug
 {
-    public static string convert(string markedupText, string[] options)
+    public static string convert(string[] options, string markedupText)
     {
         return markedupText;
     }
 
-    public static string action(string text, string[] options)
+    public static string action(string[] options, string markedupText, string text)
     {
         return options[0];
     }

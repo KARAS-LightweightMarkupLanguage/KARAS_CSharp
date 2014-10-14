@@ -33,18 +33,18 @@
 
 public static class Template
 {
-    public static string convert(string markedupText, string[] options)
+    public static string convert(string[] options, string markedupText)
     {
-        //Markup syntax is this. "[[plugin::option1::option2…::markedupText]]"
+        //Markup syntax is this. "[[plugin::option1::option2…:::markedupText]]"
         //Markedup text(and the syntax) in original text will be removed,
         //and insert return text there.
         //If you wont insert anything text, you have to return ""(empty string).
         return markedupText;
     }
 
-    public static string action(string text, string[] options)
+    public static string action(string[] options, string markedupText, string text)
     {
-        //Markup syntax is this. "[[[plugin::option1::option2…]]]"
+        //Markup syntax is this. "[[[plugin::option1::option2…:::markedupText]]]"
         //"text" is all of the original text.
         //Markedup text(and the syntax) in original text will be removed,
         //and insert return text there.

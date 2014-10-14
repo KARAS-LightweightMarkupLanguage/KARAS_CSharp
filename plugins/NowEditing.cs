@@ -29,12 +29,12 @@
 
 public static class NowEditing
 {
-    public static string convert(string markedupText, string[] options)
+    public static string convert(string[] options, string markedupText)
     {
         return "<b> Now Editing. </b>";
     }
 
-    public static string action(string text, string[] options)
+    public static string action(string[] options, string markedupText, string text)
     {
         return "\n<p><span style=\"font-size:300%;\"><b> Now Editing. </b></span></p>\n";
     }

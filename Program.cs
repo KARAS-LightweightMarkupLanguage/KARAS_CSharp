@@ -38,14 +38,15 @@ class Program
     static void Main(string[] args)
     {
         StreamReader streamReader = new StreamReader("./Sample.karas", Encoding.UTF8);
-        string speedText = streamReader.ReadToEnd();
+        string text = streamReader.ReadToEnd();
         streamReader.Dispose();
 
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
         string result = KARAS.KARAS.convert
-            (speedText,
-             Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\plugins");
+            (text,
+             Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\plugins",
+             1);
         stopwatch.Stop();
 
         StreamWriter streamWriter = new StreamWriter("./Result.html", false, Encoding.UTF8);

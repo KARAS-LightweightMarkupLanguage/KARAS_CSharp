@@ -88,7 +88,7 @@ namespace KARAS
         public static readonly Regex RegexCommentOut
             = new Regex("(\\\\*)(\\#{2,})", RegexOptions.Singleline);
         public static readonly Regex RegexSplitOption
-             = new Regex("(\\\\*)(::)", RegexOptions.Singleline);
+             = new Regex("(\\\\*)(:{2,3})", RegexOptions.Singleline);
 
         //Other
         public static readonly Regex RegexEscape
@@ -187,12 +187,7 @@ namespace KARAS
 
 
 
-        public static string convert(string text)
-        {
-            return convert(text, KARAS.PluginDirectory);
-        }
-
-        public static string convert(string text, string pluginDirectory)
+        public static string convert(string text, string pluginDirectory, int startLevelOfHeading)
         {
             string escapeCode = KARAS.generateSafeEscapeCode(text, KARAS.DefaultEscapeCode);
             string lineBreakCode = KARAS.getDefaultLineBreakCode(text);
@@ -229,7 +224,7 @@ namespace KARAS
             text = KARAS.convertTable(text);
             text = KARAS.convertList(text);
             text = KARAS.convertDefList(text);
-            text = KARAS.convertHeading(text);
+            text = KARAS.convertHeading(text, startLevelOfHeading);
             text = KARAS.convertBlockLink(text);
             text = KARAS.convertParagraph(text);
             text = KARAS.reduceBlankLine(text);
@@ -423,7 +418,7 @@ namespace KARAS
             return KARAS.RegexWhiteSpace.Replace(text, "");
         }
 
-        public static string[] splitOption(string text)
+        public static string[] splitOption(string text, ref bool isSpecialOption)
         {
             //match group index.
             //const int mgiAllText = 0;
@@ -448,6 +443,15 @@ namespace KARAS
                     continue;
                 }
 
+                if(match.Groups[mgiMarks].Length == 3)
+                {
+                    isSpecialOption = true;
+                }
+                else
+                {
+                    isSpecialOption = false;
+                }
+
                 return new string[]
                 {
                     text.Substring(0, match.Groups[mgiMarks].Index).Trim(),
@@ -457,26 +461,35 @@ namespace KARAS
             }
         }
 
-        public static string[] splitOptions(string text)
+        public static string[] splitOptions(string text, ref bool hasSpecialOption)
         {
-            List<string> textList = new List<string>();
+            List<string> options = new List<string>();
             string restText = text.Trim();
 
             while (true)
             {
-                string[] splitTexts = splitOption(restText);
+                bool isSpecialOption = false;
+                string[] splitResult = splitOption(restText, ref isSpecialOption);
                 
-                if (splitTexts.Length == 1)
+                if (splitResult.Length == 1)
                 {
-                    textList.Add(restText);
+                    options.Add(restText);
                     break;
                 }
 
-                textList.Add(splitTexts[0]);
-                restText = splitTexts[1];
+                if(isSpecialOption == true)
+                {
+                    options.Add(splitResult[0]);
+                    options.Add(splitResult[1]);
+                    hasSpecialOption = true;
+                    break;
+                }
+
+                options.Add(splitResult[0]);
+                restText = splitResult[1];
             }
 
-            return textList.ToArray();
+            return options.ToArray();
         }
 
 
@@ -683,56 +696,36 @@ namespace KARAS
         private static string constructPluginText(string text, string markedupText,
             string openMarks, string closeMarks, PluginManager pluginManager)
         {
-            string[] markedupTexts = splitOptions(markedupText);
+            bool hasSpecialOption = false;
+            string[] markedupTexts = splitOptions(markedupText, ref hasSpecialOption);
             string pluginName = markedupTexts[0];
             string[] options = new string[0];
 
+            if (markedupTexts.Length > 1)
+            {
+                options = markedupTexts.Skip(1).Take(markedupTexts.Length - 1).ToArray();
+            }
+
+            if(hasSpecialOption == true)
+            {
+                markedupText = options[options.Length - 1];
+                options = options.Take(markedupTexts.Length - 2).ToArray();
+            }
+
             if (openMarks.Length > 2 && closeMarks.Length > 2)
             {
-                if (markedupTexts.Length > 1)
-                {
-                    options = markedupTexts.Skip(1).Take(markedupTexts.Length - 1).ToArray();
-                }
-
-                return constructActionTypePluginText(pluginManager, pluginName, text, options);
+                return constructActionTypePluginText
+                    (pluginManager, pluginName, options, markedupText, text);
             }
             else
             {
-                markedupText = markedupTexts[markedupTexts.Length - 1];
-
-                if (markedupTexts.Length > 2)
-                {
-                    options = markedupTexts.Skip(1).Take(markedupTexts.Length - 2).ToArray();
-                }
-
                 return constructConvertTypePluginText
-                            (pluginManager, pluginName, markedupText, options);
-            }
-        }
-
-        private static string constructConvertTypePluginText
-            (PluginManager pluginManager, string pluginName, string markedupText, string[] options)
-        {
-            Type plugin = pluginManager.getPlugin(pluginName);
-
-            if (plugin == null)
-            {
-                return " Plugin \"" + pluginName + "\" has wrong. ";
-            }
-
-            try
-            {
-                MethodInfo methodInfo = plugin.GetMethod("convert");
-                return (string)methodInfo.Invoke(null, new object[] { markedupText, options });
-            }
-            catch
-            {
-                return " Plugin \"" + pluginName + "\" has wrong. ";
+                    (pluginManager, pluginName, options, markedupText);
             }
         }
 
         private static string constructActionTypePluginText
-            (PluginManager pluginManager, string pluginName, string text, string[] options)
+            (PluginManager pluginManager, string pluginName, string[] options, string markedupText, string text)
         {
             Type plugin = pluginManager.getPlugin(pluginName);
 
@@ -744,13 +737,36 @@ namespace KARAS
             try
             {
                 MethodInfo methodInfo = plugin.GetMethod("action");
-                return (string)methodInfo.Invoke(null, new object[] { text, options });
+                return (string)methodInfo.Invoke(null, new object[] { options, markedupText, text });
             }
             catch
             {
                 return " Plugin \"" + pluginName + "\" has wrong. ";
             }
         }
+
+        private static string constructConvertTypePluginText
+            (PluginManager pluginManager, string pluginName, string[] options, string markedupText)
+        {
+            Type plugin = pluginManager.getPlugin(pluginName);
+
+            if (plugin == null)
+            {
+                return " Plugin \"" + pluginName + "\" has wrong. ";
+            }
+
+            try
+            {
+                MethodInfo methodInfo = plugin.GetMethod("convert");
+                return (string)methodInfo.Invoke(null, new object[] { options, markedupText });
+            }
+            catch
+            {
+                return " Plugin \"" + pluginName + "\" has wrong. ";
+            }
+        }
+
+
 
 
 
@@ -909,7 +925,8 @@ namespace KARAS
             blockGroupMatch.index = index;
             blockGroupMatch.length = textLength;
 
-            string[] options = KARAS.splitOptions(optionText);
+            bool isSpecialOption = false;
+            string[] options = KARAS.splitOptions(optionText, ref isSpecialOption);
 
             if (options.Length > 0)
             {
@@ -1010,7 +1027,8 @@ namespace KARAS
                     //to convert inline markup's options first.
                     string markedupText = 
                         KARAS.convertInlineMarkup(match.Groups[mgiMarkedupText].Value);
-                    string[] markedupTexts = KARAS.splitOptions(markedupText);
+                    bool hasSpecialOption = false;
+                    string[] markedupTexts = KARAS.splitOptions(markedupText, ref hasSpecialOption);
                     string id = "";
 
                     if (markedupTexts.Length > 1)
@@ -1990,7 +2008,8 @@ namespace KARAS
         private static string constructListItemText(string listItemText)
         {
             listItemText = KARAS.convertInlineMarkup(listItemText);
-            string[] listItemTexts = splitOption(listItemText);
+            bool isSpecialOption = false;
+            string[] listItemTexts = splitOption(listItemText, ref isSpecialOption);
 
             if (listItemTexts.Length > 1)
             {
@@ -2108,7 +2127,7 @@ namespace KARAS
             return text;
         }
 
-        public static string convertHeading(string text)
+        public static string convertHeading(string text, int startLevelOfHeading)
         {
             //match group index.
             const int mgiAllText = 0;
@@ -2132,6 +2151,7 @@ namespace KARAS
 
                 string newText = "";
                 int level = match.Groups[mgiMarks].Length;
+                level = level + startLevelOfHeading - 1;
 
                 if (level >= maxLevelOfHeading + 1)
                 {
@@ -2143,7 +2163,8 @@ namespace KARAS
                     //to convert inline markup's options first.
                     string markedupText
                         = KARAS.convertInlineMarkup(match.Groups[mgiMarkedupText].Value);
-                    string[] markedupTexts = KARAS.splitOption(markedupText);
+                    bool isSpecialOption = false;
+                    string[] markedupTexts = KARAS.splitOption(markedupText, ref isSpecialOption);
                     string id = "";
 
                     if (markedupTexts.Length > 1)
@@ -2590,7 +2611,8 @@ namespace KARAS
         private static void constructLinkText(string markedupText, 
             ref string newText, ref string openMarks, ref string closeMarks)
         {
-            string[] markedupTexts = KARAS.splitOption(markedupText);
+            bool isSpecialOption = false;
+            string[] markedupTexts = KARAS.splitOption(markedupText, ref isSpecialOption);
             string url = markedupTexts[0];
 
             if (openMarks.Length >= 5 && closeMarks.Length >= 5)
@@ -2811,7 +2833,8 @@ namespace KARAS
         private static void constructInlineGroupText(string markedupText,
             ref string newText, ref string openMarks, ref string closeMarks)
         {
-            string[] markedupTexts = KARAS.splitOption(markedupText);
+            bool isSpecialOption = false;
+            string[] markedupTexts = KARAS.splitOption(markedupText, ref isSpecialOption);
             string idClass = "";
 
             if (openMarks.Length >= 3 && closeMarks.Length >= 3)
@@ -2823,15 +2846,22 @@ namespace KARAS
                 idClass = " class=\"";
             }
 
-            if (markedupTexts.Length > 1)
+            if (markedupTexts[0].Length == 0)
+            {
+                idClass = "";
+            }
+            else
             {
                 idClass += markedupTexts[0] + "\"";
+            }
+
+            if (markedupTexts.Length > 1)
+            {
                 newText = markedupTexts[1];
             }
             else
             {
-                newText = markedupTexts[0];
-                idClass = "";
+                newText = "";
             }
 
             int markDiff = openMarks.Length - closeMarks.Length;
@@ -2864,7 +2894,9 @@ namespace KARAS
             {
                 openTag = "<ruby>";
                 closeTag = "</ruby>";
-                string[] markedupTexts = KARAS.splitOptions(markedupText);
+
+                bool hasSpecialOption = false;
+                string[] markedupTexts = KARAS.splitOptions(markedupText, ref hasSpecialOption);
                 markedupText = markedupTexts[0];
 
                 for (int i = 1; i < markedupTexts.Length; i += 2)

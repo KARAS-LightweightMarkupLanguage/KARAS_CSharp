@@ -32,7 +32,7 @@ using KARAS;
 
 public static class TOC
 {
-    public static string action(string text, string[] options)
+    public static string action(string[] options, string markedupText, string text)
     {
         // Remove heading syntax in pre element.
         text = KARAS.KARAS.replaceTextInPreElement(text, "=", "");
@@ -107,9 +107,10 @@ public static class TOC
                         newText += "</li>\n<li>";
                     }
 
-                    string markedupText = KARAS.KARAS.convertInlineMarkup
-                                              (match.Groups[mgiMarkedupText].Value);
-                    string[] markedupTexts = KARAS.KARAS.splitOptions(markedupText);
+                    string markedupTextInHeading = KARAS.KARAS.convertInlineMarkup
+                                                    (match.Groups[mgiMarkedupText].Value);
+                    bool hasSpecialOption = false;
+                    string[] markedupTexts = KARAS.KARAS.splitOptions(markedupTextInHeading, ref hasSpecialOption);
                     string itemText = markedupTexts[0];
 
                     if (markedupTexts.Length > 1)

@@ -27,12 +27,14 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+using KARAS;
+
 public static class Mark
 {
-    public static string convert(string markedupText, string[] options)
+    public static string convert(string[] options, string markedupText)
     {
         string color = "";
-        
+
         if (options.Length > 0)
         {
             color = " style=\"background-color:" + options[0] + ";\"";
