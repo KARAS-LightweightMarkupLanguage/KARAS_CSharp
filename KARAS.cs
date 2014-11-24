@@ -2264,7 +2264,7 @@ namespace KARAS
                 if (match.Groups[mgiLTMarks].Length == 1)
                 {
                     //Note, it is important to exclude line breaks (like \n).
-                    nextMatchIndex = match.Groups[mgiAllText].Index
+                    nextMatchIndex = match.Groups[mgiMarkedupText].Index
                                      + match.Groups[mgiMarkedupText].Length;
                     continue;
                 }
